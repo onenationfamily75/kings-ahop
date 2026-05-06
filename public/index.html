@@ -1,0 +1,313 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes">
+  <title>Luxé Noir – Affordable Luxury Beauty Worldwide</title>
+  <meta name="description" content="Shop 40,000+ women's beauty products. Affordable prices, global shipping to America, Europe, Asia & Africa. Free shipping over $75.">
+  <meta name="keywords" content="beauty shop, affordable makeup, skincare, haircare, fragrance, global shipping">
+  <meta name="robots" content="index, follow">
+  <link rel="canonical" href="https://beauty-shop-1ny.pages.dev/">
+  <!-- Tailwind + Lucide + PapaParse -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:opsz,wght@14..32,300;400;600;700&display=swap" rel="stylesheet">
+  <script src="https://unpkg.com/lucide@latest"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.1/papaparse.min.js"></script>
+  <style>
+    * { font-family: 'Inter', sans-serif; }
+    body { background-color: #000000; color: #ffffff; }
+    .gold-text { color: #d4af37; }
+    .gold-bg { background-color: #d4af37; }
+    .gold-border { border-color: #d4af37; }
+    .hover-gold:hover { color: #d4af37; }
+    .toast { position: fixed; bottom: 20px; right: 20px; background: #1a1a1a; color: white; padding: 12px 24px; border-radius: 8px; border-left: 4px solid #d4af37; z-index: 1000; transition: opacity 0.3s; }
+  </style>
+</head>
+<body class="bg-black text-white">
+  <div id="app"></div>
+  <script>
+    // ----------------------------- DATA -----------------------------
+    const CATEGORIES = ['Skincare', 'Makeup', 'Haircare', 'Fragrance', 'Bath & Body', 'Tools & Brushes', 'Natural & Organic'];
+    const ADJECTIVES = ['Luxury', 'Silk', 'Pure', 'Radiant', 'Velvet', 'Divine', 'Enchanted', 'Golden', 'Crystal', 'Midnight'];
+    const NOUNS = ['Lipstick', 'Serum', 'Cream', 'Mascara', 'Foundation', 'Perfume', 'Mask', 'Oil', 'Setting Spray', 'Palette'];
+    const IMAGE_POOL = [
+      'https://images.unsplash.com/photo-1596462502278-27e2b6bd038c?w=400',
+      'https://images.unsplash.com/photo-1522335789203-aabd1fc54bc9?w=400',
+      'https://images.unsplash.com/photo-1556228578-0d85b1a4d571?w=400',
+      'https://images.unsplash.com/photo-1618084842390-3eac6d1bcf3c?w=400',
+      'https://images.unsplash.com/photo-1594040226829-7f251ab46d80?w=400',
+      'https://images.unsplash.com/photo-1618938243995-4b8f1ef70631?w=400',
+      'https://images.unsplash.com/photo-1572635196237-14b3f281503f?w=400'
+    ];
+
+    function generateDemoProducts(count = 40040) {
+      const products = [];
+      for (let i = 1; i <= count; i++) {
+        const adj = ADJECTIVES[i % ADJECTIVES.length];
+        const noun = NOUNS[i % NOUNS.length];
+        const category = CATEGORIES[i % CATEGORIES.length];
+        const price = (15 + (i % 85)).toFixed(2);
+        const comparePrice = (parseFloat(price) + 5 + (i % 30)).toFixed(2);
+        const rating = (3.5 + (i % 15) / 10).toFixed(1);
+        products.push({
+          id: i,
+          title: `${adj} ${noun} ${Math.floor(i / 1000)}`,
+          description: `Experience the ${adj.toLowerCase()} touch with our ${noun.toLowerCase()}. Perfect for ${category.toLowerCase()} routine. Cruelty-free.`,
+          price: parseFloat(price),
+          compare_at_price: parseFloat(comparePrice),
+          image_url: IMAGE_POOL[i % IMAGE_POOL.length],
+          category: category,
+          rating: parseFloat(rating),
+          stock: 999
+        });
+      }
+      return products;
+    }
+
+    let allProducts = [];
+    function loadProducts() {
+      const stored = localStorage.getItem('luxe_products');
+      if (stored) allProducts = JSON.parse(stored);
+      else { allProducts = generateDemoProducts(40040); localStorage.setItem('luxe_products', JSON.stringify(allProducts)); }
+      return allProducts;
+    }
+    function saveProducts(products) { allProducts = products; localStorage.setItem('luxe_products', JSON.stringify(products)); }
+
+    let cart = [];
+    function loadCart() { const saved = localStorage.getItem('luxe_cart'); if (saved) cart = JSON.parse(saved); else cart = []; }
+    function saveCart() { localStorage.setItem('luxe_cart', JSON.stringify(cart)); updateCartBadge(); }
+    function addToCart(product, qty = 1) {
+      const existing = cart.find(i => i.id === product.id);
+      if (existing) existing.quantity += qty;
+      else cart.push({ ...product, quantity: qty });
+      saveCart();
+      showToast(`${product.title} added`);
+      render();
+    }
+    function updateCartItem(id, quantity) {
+      if (quantity <= 0) cart = cart.filter(i => i.id !== id);
+      else { const item = cart.find(i => i.id === id); if (item) item.quantity = quantity; }
+      saveCart();
+      render();
+    }
+    function clearCart() { cart = []; saveCart(); render(); }
+    function updateCartBadge() {
+      const count = cart.reduce((s,i) => s + i.quantity, 0);
+      const badge = document.getElementById('cart-badge');
+      if (badge) badge.innerText = count > 0 ? count : '';
+    }
+
+    let orders = [];
+    function loadOrders() { const stored = localStorage.getItem('luxe_orders'); if (stored) orders = JSON.parse(stored); else orders = []; }
+    function saveOrder(order) {
+      order.id = 'LX' + Date.now() + Math.floor(Math.random() * 1000);
+      order.createdAt = new Date().toISOString();
+      orders.push(order);
+      localStorage.setItem('luxe_orders', JSON.stringify(orders));
+      return order.id;
+    }
+    function getOrder(orderId) { return orders.find(o => o.id === orderId); }
+
+    function formatPrice(p) { return `$${p.toFixed(2)}`; }
+    function showToast(msg) {
+      const toast = document.createElement('div');
+      toast.className = 'toast';
+      toast.innerText = msg;
+      document.body.appendChild(toast);
+      setTimeout(() => toast.remove(), 3000);
+    }
+
+    // Simple hash router
+    let currentRoute = '/';
+    function navigate(route) { window.location.hash = route; }
+    let currentProductId = null, currentOrderId = null, currentPage = 1, currentCategory = 'all', currentSearch = '', currentSort = 'created_at';
+
+    function render() {
+      const app = document.getElementById('app');
+      const hash = window.location.hash.slice(1) || '/';
+      currentRoute = hash;
+      if (hash.startsWith('/product/')) {
+        currentProductId = parseInt(hash.split('/')[2]);
+        app.innerHTML = renderProductDetail(currentProductId);
+      } else if (hash.startsWith('/payment/')) {
+        currentOrderId = hash.split('/')[2];
+        app.innerHTML = renderPaymentPage(currentOrderId);
+      } else if (hash === '/shop') app.innerHTML = renderShop();
+      else if (hash === '/cart') app.innerHTML = renderCart();
+      else if (hash === '/checkout') app.innerHTML = renderCheckout();
+      else if (hash === '/admin') app.innerHTML = renderAdmin();
+      else if (hash === '/testimonials') app.innerHTML = renderTestimonials();
+      else if (hash === '/about') app.innerHTML = renderPolicy('About Us', 'Luxé Noir brings affordable luxury beauty to women across America, Europe, Asia, and Africa. Curated from top global brands with direct dropshipping.');
+      else if (hash === '/shipping') app.innerHTML = renderPolicy('Shipping Policy', 'Free worldwide shipping on orders over $75. Delivery within 5-12 business days. Track your order via email.');
+      else if (hash === '/returns') app.innerHTML = renderPolicy('Returns & Refunds', '30-day satisfaction guarantee. Return unused items for full refund. Contact support@luxenoir.com.');
+      else if (hash === '/privacy') app.innerHTML = renderPolicy('Privacy Policy', 'We protect your data. No third-party sharing. Secure SSL encryption.');
+      else if (hash === '/terms') app.innerHTML = renderPolicy('Terms of Service', 'By using Luxé Noir you agree to our terms. All products are for personal use.');
+      else if (hash === '/faq') app.innerHTML = renderPolicy('FAQ', 'Q: How to track order? A: Email with tracking link. Q: Customs fees? A: Buyer responsible.');
+      else if (hash === '/contact') app.innerHTML = renderPolicy('Contact', 'Email: hello@luxenoir.com | WhatsApp: +254 786 781 665 | 24/7 Support');
+      else app.innerHTML = renderHome();
+      lucide.createIcons();
+      attachGlobalListeners();
+      updateCartBadge();
+      if (hash === '/shop') renderShopProducts();
+    }
+
+    // ----- Components (similar to previous full HTML solution) -----
+    function renderHeader() {
+      const cartCount = cart.reduce((s,i) => s + i.quantity, 0);
+      return `
+        <header class="sticky top-0 z-50 bg-black/95 backdrop-blur-md border-b border-gold-500/30">
+          <div class="container mx-auto px-4 py-3 flex items-center justify-between">
+            <a href="#/" class="text-2xl font-bold"><span class="gold-text">LUXÉ</span> NOIR</a>
+            <nav class="hidden md:flex space-x-8"><a href="#/shop" class="hover-gold">Shop</a><a href="#/testimonials" class="hover-gold">Reviews</a><a href="#/about" class="hover-gold">About</a></nav>
+            <div class="flex items-center space-x-4">
+              <input type="text" id="search-input" placeholder="Search 40k+..." class="hidden md:block bg-gray-900 rounded-full px-4 py-1 text-sm focus:ring-1 focus:ring-gold-500">
+              <a href="#/cart" class="relative"><i data-lucide="shopping-bag"></i><span id="cart-badge" class="absolute -top-2 -right-2 gold-bg text-black text-xs rounded-full w-5 h-5 flex items-center justify-center">${cartCount || ''}</span></a>
+              <button id="mobile-menu-btn" class="md:hidden"><i data-lucide="menu"></i></button>
+            </div>
+          </div>
+          <div id="mobile-drawer" class="fixed inset-0 bg-black z-50 hidden p-4"><div class="flex justify-end"><button id="close-drawer"><i data-lucide="x"></i></button></div><div class="mt-8 space-y-4"><input type="text" id="mobile-search" placeholder="Search..." class="w-full bg-gray-900 p-2 rounded"><a href="#/shop" class="block py-2">Shop</a><a href="#/testimonials" class="block py-2">Reviews</a><a href="#/about" class="block py-2">About</a></div></div>
+        </header>
+      `;
+    }
+    function renderFooter() {
+      return `<footer class="bg-black border-t border-gold-500/20 mt-20 py-12"><div class="container mx-auto px-4 grid grid-cols-1 md:grid-cols-4 gap-8"><div><h3 class="font-bold gold-text mb-4">LUXÉ NOIR</h3><p>Affordable beauty delivered worldwide</p></div><div><h4>Shop</h4><a href="#/shop" class="block text-gray-400">All Products</a><a href="#/testimonials" class="block text-gray-400">Reviews</a></div><div><h4>Support</h4><a href="#/shipping">Shipping</a><a href="#/returns">Returns</a><a href="#/faq">FAQ</a><a href="#/contact">Contact</a></div><div><h4>Legal</h4><a href="#/privacy">Privacy</a><a href="#/terms">Terms</a></div></div><div class="text-center text-gray-500 mt-8">© 2025 Luxé Noir — Global Women's Beauty</div></footer>`;
+    }
+    function renderHome() {
+      return `<main><section class="relative h-[70vh] bg-gradient-to-r from-amber-900/40 to-black"><div class="absolute inset-0 bg-[url('https://images.unsplash.com/photo-1522335789203-aabd1fc54bc9?w=1600')] bg-cover opacity-20"></div><div class="relative container mx-auto px-4 h-full flex items-center"><div><h1 class="text-5xl md:text-7xl font-bold mb-4">Affordable Luxury <span class="gold-text">Worldwide</span></h1><a href="#/shop" class="gold-bg text-black px-8 py-3 rounded-full font-semibold">Shop Now →</a></div></div></section><section class="py-16 container mx-auto px-4"><h2 class="text-3xl font-bold mb-8 text-center">Shop by Category</h2><div class="grid grid-cols-2 md:grid-cols-4 gap-4" id="categories-grid"></div></section><section class="py-16 bg-gray-900"><div class="container mx-auto px-4"><h2 class="text-3xl font-bold mb-8">Bestsellers</h2><div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-6" id="featured-products"></div></div></section><div class="gold-bg text-black py-8 text-center"><p class="text-xl font-semibold">✨ Free worldwide shipping on orders over $75 • 30-day returns ✨</p></div></main>${renderFooter()}`;
+    }
+    function renderProductCard(p) {
+      return `<div class="bg-gray-900 rounded-lg overflow-hidden"><a href="#/product/${p.id}"><img src="${p.image_url}" class="w-full h-64 object-cover"></a><div class="p-4"><a href="#/product/${p.id}" class="font-semibold">${p.title}</a><div class="gold-text">${formatPrice(p.price)}</div><button data-id="${p.id}" class="add-to-cart-btn w-full gold-bg text-black py-2 mt-3 rounded">Add to Cart</button></div></div>`;
+    }
+    function renderShop() {
+      return `<div class="container mx-auto px-4 py-8"><div class="flex flex-col md:flex-row gap-8"><aside class="md:w-1/4"><h3 class="font-bold mb-4">Categories</h3><div id="category-filters" class="space-y-2"></div></aside><div class="md:w-3/4"><div class="flex justify-between mb-6"><input type="text" id="shop-search" placeholder="Search..." class="bg-gray-800 p-2 rounded flex-1"><select id="sort-select" class="bg-gray-800 ml-4 p-2 rounded"><option value="created_at">Latest</option><option value="price">Price: Low to High</option></select></div><div id="products-grid" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6"></div><div id="pagination" class="flex justify-center mt-8 gap-2"></div></div></div></div>${renderFooter()}`;
+    }
+    function renderProductDetail(id) {
+      const p = allProducts.find(pr => pr.id === id);
+      if (!p) return '<div class="text-center py-20">Product not found</div>';
+      return `<div class="container mx-auto px-4 py-12 flex flex-col md:flex-row gap-12"><img src="${p.image_url}" class="md:w-1/2 rounded-lg"><div><h1 class="text-3xl font-bold">${p.title}</h1><p class="gold-text text-2xl my-4">${formatPrice(p.price)}</p><p class="mb-6">${p.description}</p><button data-id="${p.id}" class="add-to-cart-btn gold-bg text-black px-8 py-3 rounded-full">Add to Cart →</button></div></div>${renderFooter()}`;
+    }
+    function renderCart() {
+      if (cart.length === 0) return `<div class="container mx-auto px-4 py-20 text-center"><h2>Cart empty</h2><a href="#/shop" class="gold-text underline">Shop now</a></div>${renderFooter()}`;
+      let subtotal = cart.reduce((s,i) => s + i.price * i.quantity, 0);
+      let shipping = subtotal > 75 ? 0 : 10;
+      let total = subtotal + shipping;
+      return `<div class="container mx-auto px-4 py-12"><h1 class="text-3xl font-bold mb-8">Cart</h1><div class="flex flex-col lg:flex-row gap-8"><div class="flex-1">${cart.map(item => `<div class="flex gap-4 border-b border-gray-800 py-4"><img src="${item.image_url}" class="w-20 h-20 object-cover"><div><h3>${item.title}</h3><p>${formatPrice(item.price)}</p><div><button data-id="${item.id}" data-change="-1" class="cart-qty-btn bg-gray-800 px-3 py-1">-</button><span class="mx-2">${item.quantity}</span><button data-id="${item.id}" data-change="1" class="cart-qty-btn bg-gray-800 px-3 py-1">+</button><button data-id="${item.id}" class="cart-remove-btn ml-4 text-red-500">Remove</button></div></div></div>`).join('')}</div><div class="lg:w-80 bg-gray-900 p-6 rounded-lg"><h3>Summary</h3><p>Subtotal: ${formatPrice(subtotal)}</p><p>Shipping: ${shipping === 0 ? 'Free' : formatPrice(shipping)}</p><p class="text-xl font-bold">Total: ${formatPrice(total)}</p><a href="#/checkout" class="block gold-bg text-black text-center py-3 rounded-full mt-6">Checkout</a></div></div></div>${renderFooter()}`;
+    }
+    function renderCheckout() {
+      if (cart.length === 0) { navigate('/cart'); return ''; }
+      let subtotal = cart.reduce((s,i) => s + i.price * i.quantity, 0);
+      let total = subtotal + (subtotal > 75 ? 0 : 10);
+      return `<div class="container mx-auto px-4 py-12 max-w-2xl"><h1 class="text-3xl font-bold mb-8">Checkout</h1><form id="checkout-form"><input type="text" id="fullname" placeholder="Full Name" required class="w-full bg-gray-800 p-3 rounded mb-4"><input type="email" id="email" placeholder="Email" required class="w-full bg-gray-800 p-3 rounded mb-4"><input type="text" id="address" placeholder="Address" required class="w-full bg-gray-800 p-3 rounded mb-4"><input type="text" id="city" placeholder="City" required class="w-full bg-gray-800 p-3 rounded mb-4"><select id="country" class="w-full bg-gray-800 p-3 rounded mb-4"><option>US</option><option>UK</option><option>KE</option><option>IN</option><option>FR</option></select><input type="text" id="zip" placeholder="ZIP" required class="w-full bg-gray-800 p-3 rounded mb-4"><div class="border-t border-gray-800 pt-4"><p>Total: ${formatPrice(total)}</p></div><button type="submit" class="w-full gold-bg text-black py-3 rounded-full">Place Order</button></form></div>${renderFooter()}`;
+    }
+    function renderPaymentPage(orderId) {
+      const order = getOrder(orderId);
+      if (!order) return '<div class="text-center py-20">Order not found.</div>';
+      const itemsList = order.items.map(i => i.title).join(', ');
+      const whatsappMsg = `Order%20%23${order.id}%0ATotal%3A%20${formatPrice(order.total)}%0AProducts%3A%20${encodeURIComponent(itemsList)}%0APayment%20Method%3A%20Bank%20Transfer`;
+      return `<div class="container mx-auto px-4 py-12 max-w-2xl"><div class="gold-bg/10 border border-gold-500/30 rounded-2xl p-8"><h1 class="text-3xl font-bold mb-2">💳 Complete Your Payment</h1><p class="mb-6">Order #${order.id} • Total: ${formatPrice(order.total)}</p><div><div class="bg-black/50 p-4 rounded-lg mb-4"><h3 class="gold-text">🌍 International Bank Transfer</h3><p>IBAN: MT08CFE28004000000000006122167 <button data-copy="MT08CFE28004000000000006122167" class="copy-btn gold-text text-sm ml-2">Copy</button><br>SWIFT: CFTEMTM1XXX<br>OpenPayd (Daniel Wanjau Mwangi)</p></div><div class="bg-black/50 p-4 rounded-lg"><h3 class="gold-text">🇺🇸 US Bank</h3><p>Account: 061815030101 <button data-copy="061815030101" class="copy-btn gold-text text-sm ml-2">Copy</button><br>Routing: 043087080<br>SSB Bank</p></div><a href="https://wa.me/254786781665?text=${whatsappMsg}" target="_blank" class="flex items-center justify-center gap-2 bg-green-600 text-white py-3 rounded-full mt-6">Confirm via WhatsApp</a></div></div></div>${renderFooter()}`;
+    }
+    function renderAdmin() {
+      return `<div class="container mx-auto px-4 py-12 max-w-2xl"><h1 class="text-3xl font-bold mb-6">Admin</h1><div class="bg-gray-900 p-6 rounded-lg"><input type="file" id="csv-file" accept=".csv"><button id="upload-csv-btn" class="gold-bg text-black px-4 py-2 rounded mt-4">Upload CSV</button><button id="reset-demo-btn" class="bg-red-600 px-4 py-2 rounded ml-4">Reset Demo</button><a href="#" id="download-template" class="ml-4 underline">CSV Template</a></div></div>${renderFooter()}`;
+    }
+    function renderTestimonials() {
+      const reviews = [{name:"Emma L.",country:"USA",text:"Love the quality!",continent:"America"},{name:"Amara O.",country:"Nigeria",text:"Affordable luxury to Lagos",continent:"Africa"},{name:"Priya K.",country:"India",text:"Great skincare",continent:"Asia"},{name:"Sophie M.",country:"France",text:"Fast delivery to Paris",continent:"Europe"}];
+      return `<div class="container mx-auto px-4 py-12"><h1 class="text-4xl font-bold text-center mb-12">Reviews</h1><div class="grid md:grid-cols-4 gap-6">${reviews.map(r => `<div class="bg-gray-900 p-6 rounded-lg"><i data-lucide="star" class="gold-text"></i><p>"${r.text}"</p><p class="mt-2 font-bold">${r.name} (${r.country})</p></div>`).join('')}</div></div>${renderFooter()}`;
+    }
+    function renderPolicy(title, content) {
+      return `<div class="container mx-auto px-4 py-12 max-w-3xl"><h1 class="text-3xl font-bold mb-6">${title}</h1><p>${content}</p></div>${renderFooter()}`;
+    }
+
+    // Shop dynamic rendering
+    function renderShopProducts() {
+      let filtered = [...allProducts];
+      if (currentCategory !== 'all') filtered = filtered.filter(p => p.category.toLowerCase() === currentCategory);
+      if (currentSearch) filtered = filtered.filter(p => p.title.toLowerCase().includes(currentSearch.toLowerCase()));
+      if (currentSort === 'price') filtered.sort((a,b) => a.price - b.price);
+      const total = filtered.length;
+      const limit = 24;
+      const start = (currentPage-1)*limit;
+      const pageProducts = filtered.slice(start, start+limit);
+      const totalPages = Math.ceil(total/limit);
+      const grid = document.getElementById('products-grid');
+      if (grid) grid.innerHTML = pageProducts.map(p => renderProductCard(p)).join('');
+      const paginationDiv = document.getElementById('pagination');
+      if (paginationDiv) {
+        let btns = '';
+        for (let i=1; i<=Math.min(totalPages,5); i++) btns += `<button data-page="${i}" class="page-btn px-4 py-2 rounded ${currentPage===i ? 'gold-bg text-black' : 'bg-gray-800'}">${i}</button>`;
+        paginationDiv.innerHTML = btns;
+        document.querySelectorAll('.page-btn').forEach(btn => btn.addEventListener('click', () => { currentPage = parseInt(btn.dataset.page); renderShopProducts(); window.scrollTo(0,0); }));
+      }
+      document.querySelectorAll('.add-to-cart-btn').forEach(btn => btn.addEventListener('click', (e) => { const id = parseInt(btn.dataset.id); const prod = allProducts.find(p => p.id === id); if(prod) addToCart(prod,1); }));
+    }
+
+    function attachGlobalListeners() {
+      // mobile menu
+      const menuBtn = document.getElementById('mobile-menu-btn');
+      const drawer = document.getElementById('mobile-drawer');
+      const closeDrawer = document.getElementById('close-drawer');
+      if (menuBtn) menuBtn.onclick = () => drawer.classList.remove('hidden');
+      if (closeDrawer) closeDrawer.onclick = () => drawer.classList.add('hidden');
+      // search
+      const searchInput = document.getElementById('search-input');
+      if (searchInput) searchInput.addEventListener('keypress', (e) => { if(e.key==='Enter') { navigate('/shop'); setTimeout(()=>{ const shopSearch = document.getElementById('shop-search'); if(shopSearch) shopSearch.value = searchInput.value; currentSearch = searchInput.value; currentPage=1; renderShopProducts(); },100); } });
+      // add to cart buttons
+      document.querySelectorAll('.add-to-cart-btn').forEach(btn => btn.addEventListener('click', (e) => { const id = parseInt(btn.dataset.id); const prod = allProducts.find(p => p.id === id); if(prod) addToCart(prod,1); }));
+      // cart qty buttons
+      document.querySelectorAll('.cart-qty-btn').forEach(btn => btn.addEventListener('click', () => { const id = parseInt(btn.dataset.id); const delta = parseInt(btn.dataset.change); const item = cart.find(i => i.id === id); if(item) updateCartItem(id, item.quantity + delta); }));
+      document.querySelectorAll('.cart-remove-btn').forEach(btn => btn.addEventListener('click', () => updateCartItem(parseInt(btn.dataset.id), 0)));
+      // checkout form
+      const checkoutForm = document.getElementById('checkout-form');
+      if (checkoutForm) {
+        checkoutForm.addEventListener('submit', (e) => {
+          e.preventDefault();
+          const name = document.getElementById('fullname').value, email = document.getElementById('email').value, address = document.getElementById('address').value, city = document.getElementById('city').value, country = document.getElementById('country').value, zip = document.getElementById('zip').value;
+          const subtotal = cart.reduce((s,i) => s + i.price * i.quantity, 0);
+          const shipping = subtotal > 75 ? 0 : 10;
+          const total = subtotal + shipping;
+          const order = { customer_name: name, customer_email: email, address, city, country, zip, items: cart.map(i => ({ id: i.id, title: i.title, price: i.price, quantity: i.quantity })), subtotal, shipping, total };
+          const orderId = saveOrder(order);
+          clearCart();
+          navigate(`/payment/${orderId}`);
+        });
+      }
+      // copy buttons
+      document.querySelectorAll('.copy-btn').forEach(btn => btn.addEventListener('click', () => { navigator.clipboard.writeText(btn.dataset.copy); showToast('Copied!'); }));
+      // admin upload
+      const uploadBtn = document.getElementById('upload-csv-btn');
+      if (uploadBtn) uploadBtn.onclick = () => {
+        const file = document.getElementById('csv-file').files[0];
+        if (!file) return showToast('Select CSV');
+        Papa.parse(file, { header: true, complete: (res) => {
+          const newProducts = res.data.map(row => ({ id: Date.now()+Math.random(), title: row['Product Title']||row.title||'Product', description: row.Description||'', price: parseFloat(row.Price||row.price||0), compare_at_price: parseFloat(row['Compare At Price']||0), image_url: row['Image URL']||row.image_url||IMAGE_POOL[0], category: row.Category||'Uncategorized', rating: 4.0 })).filter(p => p.price>0);
+          if (newProducts.length) saveProducts(newProducts);
+          showToast(`Uploaded ${newProducts.length} products`);
+          navigate('/shop');
+        }});
+      };
+      const resetBtn = document.getElementById('reset-demo-btn');
+      if (resetBtn) resetBtn.onclick = () => { saveProducts(generateDemoProducts(40040)); showToast('Reset to 40k products'); navigate('/shop'); };
+      const templateLink = document.getElementById('download-template');
+      if (templateLink) templateLink.onclick = (e) => { e.preventDefault(); const csv = "Product Title,Description,Price,Compare At Price,Image URL,Category\nVelvet Lipstick,Long-lasting,19.99,29.99,https://images.unsplash.com/photo-1596462502278-27e2b6bd038c?w=400,Makeup"; const blob = new Blob([csv],{type:'text/csv'}); const url = URL.createObjectURL(blob); const a = document.createElement('a'); a.href = url; a.download = 'template.csv'; a.click(); URL.revokeObjectURL(url); };
+      // category filters
+      const catDiv = document.getElementById('category-filters');
+      if (catDiv) {
+        catDiv.innerHTML = `<button data-cat="all" class="block w-full text-left py-1 hover-gold">All</button>` + CATEGORIES.map(c => `<button data-cat="${c.toLowerCase()}" class="block w-full text-left py-1 hover-gold">${c}</button>`).join('');
+        catDiv.querySelectorAll('button').forEach(btn => btn.onclick = () => { currentCategory = btn.dataset.cat; currentPage = 1; renderShopProducts(); });
+      }
+      const shopSearch = document.getElementById('shop-search');
+      if (shopSearch) shopSearch.oninput = (e) => { currentSearch = e.target.value; currentPage = 1; renderShopProducts(); };
+      const sortSelect = document.getElementById('sort-select');
+      if (sortSelect) sortSelect.onchange = (e) => { currentSort = e.target.value; currentPage = 1; renderShopProducts(); };
+      // home categories & featured
+      const catGrid = document.getElementById('categories-grid');
+      if (catGrid) catGrid.innerHTML = CATEGORIES.slice(0,4).map(cat => `<a href="#/shop?category=${cat.toLowerCase()}" class="relative h-64 rounded-lg overflow-hidden"><img src="${IMAGE_POOL[0]}" class="w-full h-full object-cover"><div class="absolute inset-0 bg-black/40 flex items-center justify-center"><h3 class="text-white text-2xl">${cat}</h3></div></a>`).join('');
+      const featuredDiv = document.getElementById('featured-products');
+      if (featuredDiv) featuredDiv.innerHTML = allProducts.slice(0,4).map(p => renderProductCard(p)).join('');
+    }
+
+    loadProducts(); loadCart(); loadOrders();
+    window.addEventListener('hashchange', render);
+    render();
+  </script>
+</body>
+</html>
